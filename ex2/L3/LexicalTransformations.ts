@@ -50,12 +50,12 @@ const lexTransformCExp = (exp: CExp): Result<CExp> =>
         bind(lexTransformCExp(exp.then), (then: CExp) => 
             bind(lexTransformCExp(exp.alt), (alt: CExp) => 
                 makeOk(makeIfExp(test, then, alt))))):
-    isLetExp(exp) ? safe2((vals : CExp[], body: CExp[]) => 
+    isLetExp(exp) ? safe2((vals: CExp[], body: CExp[]) => 
         makeOk(makeLetExp(zipWith(makeBinding, map(binding => binding.var.var, exp.bindings), vals), body)))
-            (mapResult((binding : Binding ) => 
+            (mapResult((binding: Binding ) => 
                 lexTransformCExp(binding.val), exp.bindings), mapResult(lexTransformCExp, exp.body)) :
-    isClassExp(exp) ? bind(mapResult((binding : Binding ) => lexTransformCExp(binding.val), exp.methods),
-                (vals : CExp[]) => makeOk(
+    isClassExp(exp) ? bind(mapResult((binding: Binding ) => lexTransformCExp(binding.val), exp.methods),
+                (vals: CExp[]) => makeOk(
                     class2proc(
                         makeClassExp(exp.fields, 
                          zipWith(makeBinding,map(binding => binding.var.var, exp.methods), vals))))) : 
