@@ -99,6 +99,7 @@ export const makeLitExp = (val: SExpValue): LitExp =>
 export const makeClassExp = (fields : VarDecl[], methods : Binding[]): ClassExp =>
     ({tag: "ClassExp", fields : fields, methods : methods});
 
+
 // Type predicates for disjoint types
 export const isProgram = (x: any): x is Program => x.tag === "Program";
 export const isDefineExp = (x: any): x is DefineExp => x.tag === "DefineExp";
@@ -120,6 +121,7 @@ export const isLitExp = (x: any): x is LitExp => x.tag === "LitExp";
 
 // ClassExp
 export const isClassExp = (x: any): x is ClassExp => x.tag === "ClassExp";
+
 
 // Type predicates for type unions
 export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);

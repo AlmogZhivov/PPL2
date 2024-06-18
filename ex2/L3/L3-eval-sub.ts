@@ -1,14 +1,14 @@
 // L3-eval.ts
-import { map } from "ramda";
-import { isCExp, isLetExp } from "./L3-ast";
+import { Dictionary, map, zip, zipWith } from "ramda";
+import { Binding, ClassExp, isCExp, isClassExp, isLetExp, makeBinding, makeVarDecl } from "./L3-ast";
 import { BoolExp, CExp, Exp, IfExp, LitExp, NumExp,
          PrimOp, ProcExp, Program, StrExp, VarDecl } from "./L3-ast";
 import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLitExp, isNumExp,
              isPrimOp, isProcExp, isStrExp, isVarRef } from "./L3-ast";
 import { makeBoolExp, makeLitExp, makeNumExp, makeProcExp, makeStrExp } from "./L3-ast";
 import { parseL3Exp } from "./L3-ast";
-import { applyEnv, makeEmptyEnv, makeEnv, Env } from "./L3-env-sub";
-import { isClosure, makeClosure, Closure, Value } from "./L3-value";
+import { applyEnv, makeEmptyEnv, makeEnv, Env, isNonEmptyEnv, isEnv, isEmptyEnv } from "./L3-env-sub";
+import {Class, Object, isClosure, makeClosure, Closure, Value, makeClass, isClass, isObject, makeObject, valueToString, makeObjectEnv, makeClosureEnv, isSymbolSExp, SymbolSExp } from "./L3-value";
 import { first, rest, isEmpty, List, isNonEmptyList } from '../shared/list';
 import { isBoolean, isNumber, isString } from "../shared/type-predicates";
 import { Result, makeOk, makeFailure, bind, mapResult, mapv } from "../shared/result";
@@ -17,6 +17,7 @@ import { applyPrimitive } from "./evalPrimitive";
 import { parse as p } from "../shared/parser";
 import { Sexp } from "s-expression";
 import { format } from "../shared/format";
+import { Certificate } from "tls";
 
 // ========================================================
 // Eval functions
@@ -37,6 +38,7 @@ const L3applicativeEval = (exp: CExp, env: Env): Result<Value> =>
                             (rands: Value[]) =>
                                 L3applyProcedure(rator, rands, env))) :
     isLetExp(exp) ? makeFailure('"let" not supported (yet)') :
+    isClassExp(exp) ? evalClass(exp, env) :
     makeFailure('Never');
 
 export const isTrueValue = (x: Value): boolean =>
@@ -50,9 +52,14 @@ const evalIf = (exp: IfExp, env: Env): Result<Value> =>
 const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
     makeOk(makeClosure(exp.args, exp.body));
 
+const evalClass = (exp: ClassExp, enf: Env ) : Result<Value> =>
+    makeOk(makeClass(exp.fields, exp.methods));
+
 const L3applyProcedure = (proc: Value, args: Value[], env: Env): Result<Value> =>
     isPrimOp(proc) ? applyPrimitive(proc, args) :
     isClosure(proc) ? applyClosure(proc, args, env) :
+    isClass(proc) ? applyClass(proc, args, env) :
+    isObject(proc) ? applyObject(proc, args, env) : 
     makeFailure(`Bad procedure ${format(proc)}`);
 
 // Applications are computed by substituting computed
@@ -73,6 +80,59 @@ const applyClosure = (proc: Closure, args: Value[], env: Env): Result<Value> => 
     const litArgs : CExp[] = map(valueToLitExp, args);
     return evalSequence(substitute(body, vars, litArgs), env);
     //return evalSequence(substitute(proc.body, vars, litArgs), env);
+}
+
+const applyClass = (proc: Class, args: Value[], env: Env): Result<Value> => {
+    if (args.length !== proc.fields.length) {
+        return makeFailure("Error: Number of Arguments is Incompatible!");
+    } else {
+        const variables: string[] = proc.fields.map((x: VarDecl) => x.var);
+        const operations: CExp[] = proc.methods.map((x: Binding) => x.val);
+        const values = args.map((x: Value) => valueToLitExp(x)); // TODO: Assign type
+        const functions = substitute(operations, variables, values);
+        const functionsNames = proc.methods.map((x: Binding) => x.var).map(
+            (x) => x.var
+        );
+        const methods = zipWith(makeBinding, functionsNames, functions);
+        if (isEmptyEnv(env)) {
+            return makeOk(makeObjectEnv(methods, env));
+        }
+        else {
+            return makeOk(makeObjectEnv(methods, makeEmptyEnv()));
+        }
+    }
+
+}
+
+
+const applyObject = (proc:Object, args:Value[], env:Env): Result<Value> => {
+    const m:Value = args[0];
+    if (isSymbolSExp(m)) {
+        const methodName:SymbolSExp = m;
+        const methods:Binding[] = proc.methods.filter((x:Binding)=> x.var.var === methodName.val);
+        if(isEmpty(methods)) {
+            return makeFailure("Unrecognized method: " + methodName.val);
+        }
+        const mayMethod:CExp = methods[0].val;
+        if (isProcExp(mayMethod)) {
+            // We want to be here!
+            const method:ProcExp = mayMethod;
+            if (isEmptyEnv(env)) {
+                const close:Closure = makeClosureEnv(method.args, method.body, env);
+                return applyClosure(close, args.slice(1), env);
+            }
+            else {
+                const close: Closure = makeClosureEnv(method.args, method.body, makeEmptyEnv());
+                return applyClosure(close, args.slice(1), env);
+            }
+        }
+        else {
+            return makeFailure("Error: not a function!");    
+        }
+    }
+    else {
+        return makeFailure("Error: does not recognize method's name!");
+    }
 }
 
 // Evaluate a sequence of expressions (in a program)
@@ -106,3 +166,5 @@ export const evalParse = (s: string): Result<Value> =>
     bind(p(s), (sexp: Sexp) => 
         bind(parseL3Exp(sexp), (exp: Exp) =>
             evalSequence([exp], makeEmptyEnv())));
+
+
