@@ -90,11 +90,10 @@ const applyObject = (proc: Object, args: Value[]): Result<Value> => {
         if (isEmpty(methods)) {
             return makeFailure("Unrecognized method: " + methodName.val);
         }
-        const mayMethod: CExp = methods[0].val;
-        if (isProcExp(mayMethod)) {
+        const mayMethod: Result<Value> = applicativeEval(methods[0].val, proc.env);
+        if (isOk(mayMethod) && isClosure(mayMethod.value)) {
             // We want to be here!
-            const method: ProcExp = mayMethod;
-            const close: Closure = makeClosureEnv(method.args, method.body, proc.env);
+            const close: Closure = mayMethod.value;
             return applyClosure(close, args.slice(1));
         }
         else {
