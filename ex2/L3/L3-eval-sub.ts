@@ -8,16 +8,15 @@ import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLitExp, isNumExp,
 import { makeBoolExp, makeLitExp, makeNumExp, makeProcExp, makeStrExp } from "./L3-ast";
 import { parseL3Exp } from "./L3-ast";
 import { applyEnv, makeEmptyEnv, makeEnv, Env, isNonEmptyEnv, isEnv, isEmptyEnv } from "./L3-env-sub";
-import {Class, Object, isClosure, makeClosure, Closure, Value, makeClass, isClass, isObject, makeObject, valueToString, makeObjectEnv, makeClosureEnv, isSymbolSExp, SymbolSExp } from "./L3-value";
+import {Class, Object, isClosure, makeClosure, Closure, Value, makeClass, isClass, isObject, makeObject, valueToString, makeObjectEnv, makeClosureEnv, isSymbolSExp, SymbolSExp, makeClassEnv } from "./L3-value";
 import { first, rest, isEmpty, List, isNonEmptyList } from '../shared/list';
 import { isBoolean, isNumber, isString } from "../shared/type-predicates";
-import { Result, makeOk, makeFailure, bind, mapResult, mapv } from "../shared/result";
+import { Result, makeOk, makeFailure, bind, mapResult, mapv, isOk } from "../shared/result";
 import { renameExps, substitute } from "./substitute";
 import { applyPrimitive } from "./evalPrimitive";
 import { parse as p } from "../shared/parser";
 import { Sexp } from "s-expression";
 import { format } from "../shared/format";
-import { Certificate } from "tls";
 
 // ========================================================
 // Eval functions
@@ -52,7 +51,7 @@ const evalIf = (exp: IfExp, env: Env): Result<Value> =>
 const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
     makeOk(makeClosure(exp.args, exp.body));
 
-const evalClass = (exp: ClassExp, enf: Env ) : Result<Value> =>
+const evalClass = (exp: ClassExp, env: Env ) : Result<Value> =>
     makeOk(makeClass(exp.fields, exp.methods));
 
 const L3applyProcedure = (proc: Value, args: Value[], env: Env): Result<Value> =>
@@ -88,18 +87,15 @@ const applyClass = (proc: Class, args: Value[], env: Env): Result<Value> => {
     } else {
         const variables: string[] = proc.fields.map((x: VarDecl) => x.var);
         const operations: CExp[] = proc.methods.map((x: Binding) => x.val);
-        const values = args.map((x: Value) => valueToLitExp(x)); // TODO: Assign type
+        const values = args.map((x: Value) => valueToLitExp(x)); 
         const functions = substitute(operations, variables, values);
-        const functionsNames = proc.methods.map((x: Binding) => x.var).map(
+        const functionsNames:string[] = proc.methods.map((x: Binding) => x.var).map(
             (x) => x.var
         );
         const methods = zipWith(makeBinding, functionsNames, functions);
-        if (isEmptyEnv(env)) {
-            return makeOk(makeObjectEnv(methods, env));
-        }
-        else {
-            return makeOk(makeObjectEnv(methods, makeEmptyEnv()));
-        }
+        
+        return makeOk(makeObject(methods));
+        
     }
 
 }
@@ -111,27 +107,24 @@ const applyObject = (proc:Object, args:Value[], env:Env): Result<Value> => {
         const methodName:SymbolSExp = m;
         const methods:Binding[] = proc.methods.filter((x:Binding)=> x.var.var === methodName.val);
         if(isEmpty(methods)) {
-            return makeFailure("Unrecognized method: " + methodName.val);
+            return makeFailure<Value>("Unrecognized method: " + methodName.val);
         }
-        const mayMethod:CExp = methods[0].val;
-        if (isProcExp(mayMethod)) {
-            // We want to be here!
-            const method:ProcExp = mayMethod;
-            if (isEmptyEnv(env)) {
-                const close:Closure = makeClosureEnv(method.args, method.body, env);
-                return applyClosure(close, args.slice(1), env);
+        const mayMethod: Result<Value> = L3applicativeEval(methods[0].val, env);
+        if (isOk(mayMethod)) {
+            const val:Value = mayMethod.value;
+            if (isClosure(val)){
+                return applyClosure(val, args.slice(1), env);
             }
             else {
-                const close: Closure = makeClosureEnv(method.args, method.body, makeEmptyEnv());
-                return applyClosure(close, args.slice(1), env);
+                return makeFailure<Value>("Error: not a functio!");
             }
         }
         else {
-            return makeFailure("Error: not a function!");    
+            return mayMethod;
         }
     }
     else {
-        return makeFailure("Error: does not recognize method's name!");
+        return makeFailure<Value>("Error: does not recognize method's name!");
     }
 }
 
