@@ -88,7 +88,7 @@ const applyClass = (proc: Class, args: Value[], env: Env): Result<Value> => {
         const variables: string[] = proc.fields.map((x: VarDecl) => x.var);
         const operations: CExp[] = proc.methods.map((x: Binding) => x.val);
         const values = args.map((x: Value) => valueToLitExp(x)); 
-        const functions = substitute(operations, variables, values);
+        const functions = substitute(renameExps(operations), variables, values);
         const functionsNames:string[] = proc.methods.map((x: Binding) => x.var).map(
             (x) => x.var
         );
