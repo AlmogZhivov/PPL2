@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import {  evalL3program } from '../L3/L3-eval-sub';
-import { SExpValue, Value, isSExp, valueToString } from "../L3/L3-value";
+import { SExpValue, Value, valueToString } from "../L3/L3-value";
 import { Result, bind, isOk, makeOk, makeFailure } from "../shared/result";
 import { parseL3} from "../L3/L3-ast";
 
@@ -23,7 +23,7 @@ describe('Q2B Tests for substitution model', () => {
                ((first (lambda () a)) 
                 (second (lambda () b))
                 (sum (lambda () (+ a b)))
-                (scale (lambda (k) (pair (* k a) (* k b))))
+                (f (lambda (k) (/ (* k a) (* k b))))
                )
              )
          )
@@ -39,7 +39,7 @@ describe('Q2B Tests for substitution model', () => {
                   ((first (lambda () a)) 
                    (second (lambda () b))
                    (sum (lambda () (+ a b)))
-                   (scale (lambda (k) (pair (* k a) (* k b))))
+                   (f (lambda (k) (/ (* k a) (* k b))))
                   )
                 )
             )
@@ -58,7 +58,7 @@ describe('Q2B Tests for substitution model', () => {
                   ((first (lambda () a)) 
                    (second (lambda () b))
                    (sum (lambda () (+ a b)))
-                   (scale (lambda (k) (pair (* k a) (* k b))))
+                   (f (lambda (k) (/ (* k a) (* k b))))
                   )
                 )
             )
@@ -74,7 +74,7 @@ describe('Q2B Tests for substitution model', () => {
                   ((first (lambda () a)) 
                    (second (lambda () b))
                    (sum (lambda () (+ a b)))
-                   (scale (lambda (k) (pair (* k a) (* k b))))
+                   (f (lambda (k) (/ (* k a) (* k b))))
                   )
                 )
             )
@@ -90,7 +90,7 @@ describe('Q2B Tests for substitution model', () => {
                   ((first (lambda () a)) 
                    (second (lambda () b))
                    (sum (lambda () (+ a b)))
-                   (scale (lambda (k) (pair (* k a) (* k b))))
+                   (f (lambda (k) (/ (* k a) (* k b))))
                   )
                 )
             )
@@ -110,15 +110,16 @@ describe('Q2B Tests for substitution model', () => {
               ((first (lambda () a)) 
                (second (lambda () b))
                (sum (lambda () (+ a b)))
-               (scale (lambda (k) (pair (* k a) (* k b))))
+               (f (lambda (k) (/ (* k a) (* k b))))
               )
             )
         )
         (define p34 (pair 3 4))
-        ((p34 'scale 2) 'second)
+        (p34 'f 2)
     )
-    `)).to.deep.equal(makeOk(8));
+    `)).to.deep.equal(makeOk(0.75));
 });
+
 
 it("Test unknown methods application for substitution model", () => {
 
@@ -129,7 +130,7 @@ it("Test unknown methods application for substitution model", () => {
            ((first (lambda () a)) 
             (second (lambda () b))
             (sum (lambda () (+ a b)))
-            (scale (lambda (k) (pair (* k a) (* k b))))
+            (f (lambda (k) (/ (* k a) (* k b))))
            )
           )
         )
@@ -149,7 +150,7 @@ it("Test unknown field in methods application", () => {
            ((first (lambda () a)) 
             (second (lambda () b))
             (sum (lambda () (+ a c)))
-            (scale (lambda (k) (pair (* k a) (* k b))))
+            (f (lambda (k) (/ (* k a) (* k b))))
            )
         )
       )
@@ -171,7 +172,7 @@ it("Test nested object methods application", () => {
               ((first (lambda () a)) 
                (second (lambda () b))
                (sum (lambda () (+ a b)))
-               (scale (lambda (k) (pair (* k a) (* k b))))
+               (f (lambda (k) (/ (* k a) (* k b))))
               )
             )
             3 4
@@ -179,8 +180,10 @@ it("Test nested object methods application", () => {
        )
     )
     `)).to.deep.equal(makeOk(3));
-     
-});
+
 
  
+});
+
+
 });
